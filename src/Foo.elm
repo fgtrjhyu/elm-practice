@@ -7,7 +7,7 @@ import Html.Events exposing (..)
 import Json.Decode as D
 import Json.Encode as E
 
-import Foo.Bar as B exposing (Model, Msg, encode, decoder)
+import Foo.Bar as B exposing (Model, Msg, encode, decoder, setPrefix)
 import Task exposing (perform)
 
 type alias Model =
@@ -38,6 +38,10 @@ updateChild position childMsg index child =
   else
     ( child, Cmd.none )
 
+updatePrefixAt : String -> Int -> B.Model -> Cmd Msg
+updatePrefixAt newText position _ =
+  Cmd.map (ChildAt position) (B.setPrefix newText) 
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
@@ -47,14 +51,24 @@ update msg model =
       )
     SetText newText ->
       ( { model | text = newText }
-      , Cmd.none
+      , (Cmd.batch (List.indexedMap (updatePrefixAt newText) model.children))
       )
     SetFlag newFlag ->
       ( { model | flag = newFlag }
       , Cmd.none
       )
     AddChild ->
-      ( { model | children = model.children ++ [ B.new ] }
+      let
+        prefix =
+          if (String.isEmpty model.text) then
+            B.new.prefix
+          else
+            model.text
+        newChild = B.new
+        newChildren = (model.children ++ [ { newChild | prefix = prefix } ])
+        newModel = { model | children = newChildren }
+      in
+      ( newModel
       , Cmd.none
       )
     RemoveAt position ->
@@ -94,7 +108,7 @@ view model =
     []
     [ h2
         []
-        [ text "Model" ]
+        [ text "Foo" ]
     , div
         []
         [ input

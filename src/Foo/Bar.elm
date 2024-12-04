@@ -1,4 +1,4 @@
-module Foo.Bar exposing (Model, Msg, update, view, new, encode, decoder)
+module Foo.Bar exposing (Model, Msg, update, view, new, encode, decoder, setPrefix)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -6,6 +6,8 @@ import Html.Events exposing (..)
 
 import Json.Decode as D
 import Json.Encode as E
+
+import Task
 
 type Msg = OptionChanged String
   | SetPrefix String
@@ -31,6 +33,10 @@ computingMascots =
 new : Model
 new =
   (Model "Hello, " "Rust")
+
+setPrefix : String -> Cmd Msg
+setPrefix newPrefix =
+  Task.perform SetPrefix (Task.succeed newPrefix)
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -75,7 +81,7 @@ view model =
         (List.map (viewOption model.project) computingMascots)
     , span
         []
-        [ text (model.prefix ++ mascot ++ "!") 
+        [ text (model.prefix ++ " " ++ mascot ++ "!") 
         ]
     ]
 
