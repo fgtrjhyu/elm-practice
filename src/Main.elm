@@ -1,22 +1,30 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
-import Foo as F exposing (Model, Msg)
+import Foo as F exposing (Model, Msg, encode, decoder)
+
+import Json.Decode as D
+import Json.Encode as E
 
 type alias Model =
   { children : List F.Model
   }
 
 type Msg
-  = AddChild
+  = RemoveFromLocalStorage
+  | AddChild
   | ChildAt Int F.Msg
   | RemoveAt Int
 
-main : Program () Model Msg
+-- PORT
+port store : E.Value -> Cmd msg
+port remove : () -> Cmd msg
+
+main : Program E.Value Model Msg
 main =
   Browser.element
     {
@@ -26,10 +34,12 @@ main =
     , subscriptions = \_ -> Sub.none
     }
 
-init : () -> ( Model, Cmd Msg )
-init _ = 
+init : E.Value -> ( Model, Cmd Msg )
+init flags = 
   (
-    (Model [])
+    case (D.decodeValue decoder flags) of
+      Ok model -> model
+      Err _ -> (Model [])
   , Cmd.none
   )
 
@@ -45,24 +55,35 @@ updateChild position childMsg index child =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
   case msg of
-    AddChild -> ( { model | children = (model.children ++ [ (F.new) ] ) }, Cmd.none )
+    RemoveFromLocalStorage ->
+      ( model
+      , (remove ())
+      )
+    AddChild ->
+      let
+        newModel = { model | children = (model.children ++ [ (F.new) ] ) }
+      in
+      ( newModel
+      , (store (encode newModel))
+      )
     RemoveAt position ->
       let
         newChildren = (List.take position model.children)
           ++ (List.drop (position + 1) model.children)
+        newModel = { model | children = newChildren }
       in
-      ({ model | children = newChildren }
-      , Cmd.none
+      ( newModel
+      , (store (encode newModel))
       )
     ChildAt position childMsg ->
       let
         newResults = (List.indexedMap (updateChild position childMsg) model.children)
         newChildren = (List.map (\(child, _) -> child) newResults)
         newCommands = (List.map (\(_, cmd) -> cmd) newResults)
-        _ = (Debug.log "a" newCommands)
+        newModel = { model | children = newChildren }
       in
-      ({ model | children = newChildren }
-      , (Cmd.batch newCommands)
+      ( newModel
+      , (Cmd.batch (newCommands ++ [ (store (encode newModel)) ]))
       )
 
 viewChild : Int -> F.Model -> Html Msg
@@ -89,6 +110,15 @@ view model =
     , div
         []
         [ button
+            [ type_ "button"
+            , onClick RemoveFromLocalStorage
+            ]
+            [ text "remove from local storage"
+            ]
+        ]
+    , div
+        []
+        [ button
             [ onClick AddChild
             ]
             [ text "Add a child"
@@ -99,3 +129,17 @@ view model =
         (List.indexedMap viewChild model.children)
     , hr [] []
     ]
+
+encode : Model -> E.Value
+encode model =
+  (E.object
+    [ ("children", (E.list F.encode model.children))
+    ]
+  )
+
+decoder : D.Decoder Model
+decoder =
+  (D.map
+    Model
+    (D.field "children" (D.list F.decoder))
+  )

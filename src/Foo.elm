@@ -1,12 +1,13 @@
-module Foo exposing (Model, Msg, new, update, view)
+module Foo exposing (Model, Msg, new, update, view, encode, decoder)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
 import Json.Decode as D
+import Json.Encode as E
 
-import Foo.Bar as B exposing (Model, Msg, toSetPrefix)
+import Foo.Bar as B exposing (Model, Msg, encode, decoder)
 import Task exposing (perform)
 
 type alias Model =
@@ -139,3 +140,22 @@ view model =
         []
         (List.indexedMap viewChild model.children)
     ]
+
+encode : Model -> E.Value
+encode model =
+  E.object
+    [ ("value", (E.int model.value))
+    , ("text", (E.string model.text))
+    , ("flag", (E.bool model.flag))
+    , ("children", (E.list B.encode model.children))
+    ]
+
+decoder : D.Decoder Model
+decoder =
+  (D.map4
+    Model
+    (D.field "value" D.int)
+    (D.field "text" D.string)
+    (D.field "flag" D.bool)
+    (D.field "children" (D.list B.decoder))
+  )

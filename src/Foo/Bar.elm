@@ -1,13 +1,13 @@
-module Foo.Bar exposing (Model, Msg, update, view, new, toSetPrefix)
+module Foo.Bar exposing (Model, Msg, update, view, new, encode, decoder)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 
 import Json.Decode as D
+import Json.Encode as E
 
-type Msg
-  = OptionChanged String
+type Msg = OptionChanged String
   | SetPrefix String
 
 type alias Option =
@@ -19,10 +19,6 @@ type alias Model =
   { prefix : String
   , project : String
   }
-
-toSetPrefix : String -> Msg
-toSetPrefix newValue =
-  (SetPrefix newValue)
 
 computingMascots : List (String, String)
 computingMascots =
@@ -82,3 +78,19 @@ view model =
         [ text (model.prefix ++ mascot ++ "!") 
         ]
     ]
+
+encode : Model -> E.Value
+encode model =
+  E.object
+    [ ("prefix", (E.string model.prefix))
+    , ("project", (E.string model.project))
+    ]
+
+decoder : D.Decoder Model
+decoder =
+  (D.map2
+    Model
+    (D.field "prefix" D.string)
+    (D.field "project" D.string)
+  )
+
