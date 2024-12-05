@@ -69,8 +69,7 @@ view model =
   in
   div
     []
-    [
-      h3
+    [ h3
         []
         [ text "Foo.Model"
         ]

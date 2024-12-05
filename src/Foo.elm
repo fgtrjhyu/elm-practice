@@ -34,9 +34,13 @@ updateChild position childMsg index child =
   if index == position then
     case (B.update childMsg child) of
       (newChild, childCmd) ->
-        (newChild, (Cmd.map (ChildAt position) childCmd))
+        ( newChild
+        , (Cmd.map (ChildAt position) childCmd)
+        )
   else
-    ( child, Cmd.none )
+    ( child
+    , Cmd.none
+    )
 
 updatePrefixAt : String -> Int -> B.Model -> Cmd Msg
 updatePrefixAt newText position _ =
@@ -85,7 +89,7 @@ update msg model =
         newChildren = (List.map (\(child, _) -> child) newResults)
         newCommands = (List.map (\(_, cmd) -> cmd) newResults)
       in
-      ({ model | children = newChildren }
+      ( { model | children = newChildren }
       , (Cmd.batch newCommands)
       )
 
