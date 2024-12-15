@@ -1,4 +1,4 @@
-module Foo.Bar exposing (Model, Msg, update, view, new, encode, decoder, setPrefix)
+module Foo.Bar exposing (Model, Msg, init, subscriptions, update, view, encode, decoder, setPrefix)
 
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -30,9 +30,15 @@ computingMascots =
   , ("Go", "Gopher")
   ]
 
-new : Model
-new =
-  (Model "Hello, " "Rust")
+init : String -> ( Model, Cmd Msg )
+init prefix =
+  ( (Model prefix "Rust")
+  , Cmd.none
+  )
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  Sub.none
 
 setPrefix : String -> Cmd Msg
 setPrefix newPrefix =
@@ -59,8 +65,8 @@ viewOption choosed (key, display) =
     [ text key
     ]
 
-view : Model -> Html Msg
-view model =
+view : String -> Model -> Html Msg
+view viewpath model =
   let
     (project, mascot) =
       case (List.head (List.filter (\(key, _) -> key == model.project) computingMascots)) of

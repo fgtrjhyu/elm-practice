@@ -40,10 +40,11 @@ routeParser =
 
 toRoute : Url.Url -> Route
 toRoute url =
-  Maybe.withDefault NotFound (P.parse routeParser url)
+  Maybe.withDefault Home (P.parse routeParser url)
 
 type Msg
   = RemoveFromLocalStorage
+  | StoreIntoLocalStorage
   | AddChild
   | ChildAt Int F.Msg
   | RemoveAt Int
@@ -54,7 +55,6 @@ type Msg
 port store : E.Value -> Cmd msg
 port remove : () -> Cmd msg
 
-
 main : Program E.Value Model Msg
 main =
   Browser.application
@@ -63,15 +63,39 @@ main =
     , onUrlRequest = LinkClicked
     , view = view
     , update = update
-    , subscriptions = \_ -> Sub.none
+    , subscriptions = subscriptions
     }
 
 init : E.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key = 
-  (case (D.decodeValue (decoder (Model key url)) flags) of
-      Ok model -> model
-      Err _ -> (Model key url [] "jp" 2025 12)
-  , Cmd.none)
+  let
+     newModel =
+       case (D.decodeValue (decoder (Model key url)) flags) of
+         Ok model ->
+           model
+         Err _ ->
+           let
+             model = (Model key url [] "jp" 2025 12)
+           in
+           model
+  in
+  ( newModel
+  , Cmd.none
+  )
+
+subscriptionsChildAt: Int -> F.Model -> Sub Msg
+subscriptionsChildAt position subModel =
+  let
+    subMsg = (F.subscriptions subModel)
+  in
+  Sub.map (ChildAt position) subMsg
+
+subscriptions: Model -> Sub Msg
+subscriptions model =
+  let
+    subMessages = List.indexedMap subscriptionsChildAt model.children
+  in
+  Sub.batch (subMessages ++ [ Sub.none ])
 
 updateChild : Int -> F.Msg -> Int -> F.Model -> ( F.Model, Cmd Msg )
 updateChild position childMsg index child =
@@ -89,12 +113,21 @@ update msg model =
       ( model
       , (remove ())
       )
+    StoreIntoLocalStorage ->
+      ( model
+      , (store (encode model))
+      )
     AddChild ->
       let
-        newModel = { model | children = (model.children ++ [ (F.new) ] ) }
+        position = List.length model.children
+        (subModel, subMsg) = (F.init)
+        newModel = { model | children = (model.children ++ [ subModel ] ) }
       in
       ( newModel
-      , (store (encode newModel))
+      , Cmd.batch [
+          (Cmd.map (ChildAt position) subMsg)
+        , Cmd.none
+        ]
       )
     RemoveAt position ->
       let
@@ -103,7 +136,7 @@ update msg model =
         newModel = { model | children = newChildren }
       in
       ( newModel
-      , (store (encode newModel))
+      , Cmd.none
       )
     ChildAt position childMsg ->
       let
@@ -113,11 +146,10 @@ update msg model =
         newModel = { model | children = newChildren }
       in
       ( newModel
-      , (Cmd.batch (newCommands ++ [ (store (encode newModel)) ]))
+      , (Cmd.batch (newCommands))
       )
     LinkClicked urlRequest ->
       let
-        _ = (Debug.log "LinkClicked" urlRequest)
         cmd =
           case urlRequest of
             Browser.Internal url ->
@@ -130,7 +162,6 @@ update msg model =
       )
     UrlChanged url ->
       let
-        _ = (Debug.log "UrlChanged" url)
         tmpModel = { model | url = url }
         newModel = case (toRoute url) of
           NotFound -> tmpModel
@@ -143,6 +174,9 @@ update msg model =
 
 viewChild : Int -> F.Model -> Html Msg
 viewChild index child =
+  let
+    viewpath = ".Main.children." ++ (String.fromInt index)
+  in
   li
     [ style "margin-top" "1em"
     ]
@@ -151,7 +185,7 @@ viewChild index child =
         ]
         [ text ("remove at " ++ (String.fromInt index))
         ]
-    , (Html.map (ChildAt index) (F.view child))
+    , (Html.map (ChildAt index) (F.view viewpath child))
     ]
 
 viewLink : String -> Html Msg
@@ -206,12 +240,20 @@ viewHome model =
         ]
         []
     , div
-        []
+        [
+        ]
         [ button
             [ type_ "button"
             , onClick RemoveFromLocalStorage
             ]
-            [ text "remove from local storage"
+            [ text "to remove from local storage."
+            ]
+        , button
+            [ type_ "button"
+            , onClick StoreIntoLocalStorage
+            , style "margin-left" "8px"
+            ]
+            [ text "to store into local storage."
             ]
         ]
     , div
